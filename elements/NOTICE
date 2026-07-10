@@ -1,0 +1,51 @@
+VENDORED SVG ASSETS — sources & licenses
+==========================================
+
+All SVGs here were rewritten to be self-contained and to use `currentColor` for
+every stroke/fill, so they inherit the cover's palette (the cover sets `color`
+to the palette ink/accent). No original hex colors were kept.
+
+------------------------------------------------------------------
+icons/*.svg  —  Tabler Icons  (outline style)
+------------------------------------------------------------------
+Source : https://github.com/tabler/tabler-icons
+Version fetched from CDN: https://cdn.jsdelivr.net/npm/@tabler/icons (2026-07-07)
+License: MIT (https://github.com/tabler/tabler-icons/blob/main/LICENSE)
+Terms  : MIT is permissive — commercial use, modification (incl. recoloring and
+         restroking), and redistribution are all allowed. No attribution is
+         legally required; this NOTICE credits the source as good practice.
+Modification made: dropped Tabler's transparent bounding-box <path>, stripped
+         per-path stroke/fill overrides, set stroke-width 1.6, kept only `d=`
+         so the shape inherits `stroke="currentColor"` from the root <svg>.
+
+Vendored icon files:
+  robot, brain, database, chart-line, bolt, shield-check, clock, cloud, lock,
+  rocket, bug, key, search, gauge, network, cpu, file-text, alert-triangle,
+  trending-up, trending-down, git-branch, terminal-2, message-chatbot, coin,
+  plug, currency-dollar, puzzle, stack-2, eye, api, mail
+
+------------------------------------------------------------------
+logos/*.svg  —  Simple Icons  (brand/tool logos)
+------------------------------------------------------------------
+Source : https://github.com/simple-icons/simple-icons
+Version fetched from CDN: https://cdn.jsdelivr.net/npm/simple-icons (2026-07-07)
+License: CC0-1.0 (public domain dedication) for the icon SVG paths.
+         https://github.com/simple-icons/simple-icons/blob/master/LICENSE.md
+Terms  : The SVG paths are released CC0 (no rights reserved). NOTE: the brand
+         logos they depict remain the TRADEMARKS of their respective owners.
+         Using a logo to editorially/informationally identify the tool a post
+         is ABOUT (nominative use) is standard and fine; do not imply the brand
+         endorses this content, and don't distort the mark beyond recoloring.
+         See simple-icons DISCLAIMER: https://github.com/simple-icons/simple-icons/blob/master/DISCLAIMER.md
+Modification made: kept the single brand <path>(s), set root fill="currentColor"
+         so the mark takes the palette's ink/accent instead of the brand color.
+
+Vendored logo files:
+  openai, anthropic, github, python, langchain, huggingface, notion, nvidia,
+  googlegemini, ollama
+
+------------------------------------------------------------------
+motifs  —  generated procedurally in ../element.py (no vendored asset).
+           Concentric arcs / dot-grid / waveform / offset-grid, drawn from the
+           palette vars. Original work, no license needed.
+------------------------------------------------------------------

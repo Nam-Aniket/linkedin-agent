@@ -1,0 +1,4 @@
+# main pipeline environment (the renderer venv is separate - see README)
+numpy
+matplotlib
+Pillow
