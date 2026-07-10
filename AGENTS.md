@@ -18,6 +18,15 @@ Only after `profile.json` exists do the operating instructions below apply.
 
 Work in the repo root. Every gate below is mandatory; order matters.
 
+0. **Format gate.** The user's words pick the format, and it never changes
+   mid-flow without asking them: "image post" = ONE cover via
+   `compose.pick_flow` published with `post.py --image`; "carousel"/"deck" =
+   `html_deck.render_deck` published with `post.py --carousel <pdf>`. Never
+   publish a deck page (deck_N.png) as an image - post.py hard-blocks it.
+   Restate the format in the approval preview. Grounds rotate automatically
+   (no two dark grounds in a row); if the user explicitly wants dark, set
+   `story["ground"] = "dark"`.
+
 1. **Stock the backlog.** `python3 scout.py floor` - if below the floor, show
    the user the candidates, let them pick keepers, paste keepers into
    `ideas.md` and set utility/surprise/capability (0-3) with them.

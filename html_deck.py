@@ -250,7 +250,9 @@ def render_deck(deck, outdir=DRAFTS, name="deck", ask=None):
     if fails:
         raise ValueError("deck failed lint:\n  - " + "\n  - ".join(fails))
     story = deck["story"]
-    pal = palette_for(story["mood"], _story_seed(story))
+    # story ground='dark'|'light' pins the ground; otherwise palette_for's ground
+    # rotation applies (no two dark grounds in a row without an explicit pin)
+    pal = palette_for(story["mood"], _story_seed(story), story.get("ground"))
     cover = deck["slides"][0]
     asset = cover.get("asset")
     if asset and asset.get("path"):

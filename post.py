@@ -8,7 +8,7 @@ Usage:
 
 Reads the access token + person URN from token.json (created by auth.py).
 """
-import argparse, json, sys, time, mimetypes, urllib.request, urllib.error, urllib.parse
+import argparse, json, re, sys, time, mimetypes, urllib.request, urllib.error, urllib.parse
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -19,6 +19,30 @@ def _deck_manifest(pdf_path):
     """The design manifest html_deck writes next to the PDF (None if absent)."""
     p = Path(pdf_path).with_suffix(".json")
     return json.loads(p.read_text()) if p.exists() else None
+
+
+def _deck_page_guard(image_path):
+    """FORMAT GATE: an --image that is really page N of a rendered deck is a
+    format mixup, not a single-image post. Detects <name>_<i>.png with a sibling
+    <name>.json DECK manifest (has both 'slides' and 'kinds'). Returns the block
+    reason, or None when fine - compose variant sidecars don't have those keys,
+    so real single-image covers pass."""
+    m = re.match(r"^(.*)_(\d+)$", Path(image_path).stem)
+    if not m:
+        return None
+    manifest = Path(image_path).with_name(m.group(1) + ".json")
+    if not manifest.exists():
+        return None
+    try:
+        d = json.loads(manifest.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+    if d.get("slides") and d.get("kinds"):
+        return (f"{Path(image_path).name} is page {m.group(2)} of a "
+                f"{d['slides']}-slide deck. For a carousel post use "
+                f"--carousel {m.group(1)}.pdf; for a single-IMAGE post render a "
+                f"cover via compose.pick_flow and pass that PNG instead.")
+    return None
 
 
 def _quality_gates(text, manifest, confirm):
@@ -162,6 +186,29 @@ def post_document(token, person_urn, text, pdf_path, title):
     return status, headers.get("x-restli-id") or headers.get("X-RestLi-Id")
 
 
+def _selftest():
+    """Offline check of the deck-page format gate."""
+    import tempfile
+    d = Path(tempfile.mkdtemp())
+    (d / "deck_1.png").write_bytes(b"x")
+    (d / "deck.json").write_text(json.dumps({"slides": 6, "kinds": ["cover"]}))
+    r = _deck_page_guard(d / "deck_1.png")
+    assert r and "page 1" in r and "deck.pdf" in r, r
+    # a compose variant sidecar (no slides/kinds) must NOT trip the gate
+    (d / "cover_2.png").write_bytes(b"x")
+    (d / "cover.json").write_text(json.dumps({"composition": "left|dominant|none|flat"}))
+    assert _deck_page_guard(d / "cover_2.png") is None
+    # names without a numeric page suffix, or no sibling manifest: fine
+    (d / "myshot.png").write_bytes(b"x")
+    assert _deck_page_guard(d / "myshot.png") is None
+    assert _deck_page_guard(d / "orphan_3.png") is None
+    # corrupt manifest never crashes the publisher
+    (d / "bad.json").write_text("{not json")
+    (d / "bad_1.png").write_bytes(b"x")
+    assert _deck_page_guard(d / "bad_1.png") is None
+    print("post selftest ok - deck-page format gate")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--text")
@@ -175,7 +222,10 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="preview only (same as omitting --confirm)")
     ap.add_argument("--confirm", action="store_true",
                     help="REQUIRED to actually publish. Without it, everything is preview-only.")
+    ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
+    if a.selftest:
+        _selftest(); return
 
     # the learning loop's nudge: whenever you touch the publisher, surface any
     # posts whose 24h/7d numbers are due (recording is manual - API can't read counts)
@@ -204,11 +254,20 @@ def main():
     if not text:
         sys.exit("Provide --text or --text-file")
 
+    if a.image and a.carousel:
+        sys.exit("FORMAT GATE: --image and --carousel are different post formats - pick one.")
+    if a.image:
+        reason = _deck_page_guard(a.image)
+        if reason:
+            sys.exit("FORMAT GATE: " + reason)
+
     manifest = _deck_manifest(a.carousel) if a.carousel else \
         _deck_manifest(a.image) if a.image else None
 
+    fmt = (f"{(manifest or {}).get('slides', '?')}-page CAROUSEL document" if a.carousel
+           else "single-IMAGE post" if a.image else "TEXT-only post")
     if not a.confirm:
-        print("PREVIEW — would post to your profile:\n" + "=" * 56)
+        print(f"PREVIEW — would post to your profile as a {fmt}:\n" + "=" * 56)
         print(text)
         print("=" * 56)
         if a.image:
@@ -228,6 +287,7 @@ def main():
         sys.exit("BLOCKED by content gates:\n  - " + "\n  - ".join(blockers)
                  + "\nFix the content (or the history log) and re-run.")
 
+    print(f"Publishing as a {fmt}...")
     t = load_token()
     token, person = t["access_token"], t["person_urn"]
 

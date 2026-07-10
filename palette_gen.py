@@ -82,13 +82,42 @@ def generate(hue_step=15):
 HUE_JITTER = [0, 16, -16, 32, -32, 48, -48]
 
 
-def palette_for(mood, seed):
+def _last_ground(rows=None):
+    """Ground of the most recently PUBLISHED post: last tracking.csv row (append
+    order) with a recorded palette_dark. True=dark, False=light, None=no history."""
+    if rows is None:
+        import tracker
+        rows = tracker._read()
+    for r in reversed(rows):
+        if str(r.get("palette_dark", "")).strip() in ("0", "1"):
+            return str(r["palette_dark"]).strip() == "1"
+    return None
+
+
+_ROTATED = []   # print the rotation notice once per process, not per ladder rung
+
+
+def palette_for(mood, seed, ground=None, _rows=None):
     """Always returns a valid (contrast-gated) palette on the mood's hue. Luminous
     hues (green, yellow) can't pop on a light ground, so we try the mood's ground
     first, then flip to dark - where they DO pop - keeping the mood's hue either way.
-    Unknown moods fall back to 'neutral' (or blue-on-light if even that is missing)."""
+    Unknown moods fall back to 'neutral' (or blue-on-light if even that is missing).
+
+    `ground` = 'dark'|'light' pins the ground (an explicit human call, always wins).
+    GROUND ROTATION: without a pin, a mood's preferred DARK ground is honored only
+    if the last published post wasn't dark - two dark grounds in a row require an
+    explicit pin. Guards against dark drift: when one dark-preferring mood
+    dominates your stories, a static mood map alone slowly turns the feed dark."""
     moods = _profile.P["design"]["moods"]
     base, dark = moods.get(mood, moods.get("neutral", [210, False]))
+    if ground in ("dark", "light"):
+        dark = ground == "dark"
+    elif dark and _last_ground(_rows):
+        dark = False
+        if not _ROTATED:
+            _ROTATED.append(1)
+            print("  [ground rotation] last published post was dark -> light ground "
+                  "first (pin with story ground='dark' to override)")
     off0 = seed % len(HUE_JITTER)
     for d in (bool(dark), not dark):
         for k in range(len(HUE_JITTER)):
@@ -197,9 +226,16 @@ def _selftest():
     assert dominant_hue(gray) is None and palette_from_asset(gray) is None, \
         "colorless assets yield None - caller keeps the mood palette"
     # mood -> palette: deterministic, gate-passing, unknown moods never crash
-    p1, p2 = palette_for("neutral", 0), palette_for("neutral", 0)
+    p1, p2 = palette_for("neutral", 0, _rows=[]), palette_for("neutral", 0, _rows=[])
     assert p1 == p2 and contrast(p1["ground"], p1["ink"]) >= 7.0
-    assert palette_for("a-mood-nobody-defined", 3), "unknown mood must fall back"
+    assert palette_for("a-mood-nobody-defined", 3, _rows=[]), "unknown mood must fall back"
+    # ground rotation: dark-preferring mood goes light after a dark post; a pin wins
+    dark_hist, light_hist = [{"palette_dark": "1"}], [{"palette_dark": "0"}]
+    assert palette_for("bold", 0, _rows=light_hist)["dark"], "light history keeps mood dark"
+    assert not palette_for("bold", 0, _rows=dark_hist)["dark"], "dark history must rotate"
+    assert palette_for("bold", 0, ground="dark", _rows=dark_hist)["dark"], "pin beats rotation"
+    assert _last_ground([{"palette_dark": "1"}, {"palette_dark": "0"}, {}]) is False
+    assert _last_ground([]) is None
     print(f"selftest ok - {total} passed, {rejected} rejected by the contrast gate; "
           f"brand extraction ok; palette_for ok")
 

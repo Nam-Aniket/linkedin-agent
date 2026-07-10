@@ -94,7 +94,7 @@ def build(story, seed=None, placement=None):
     s = _story_seed(story) if seed is None else seed
     if placement is None:  # seeded variety: different stories get different slots
         placement = ROTATION[s % len(ROTATION)]
-    pal = palette_for(story["mood"], s)
+    pal = palette_for(story["mood"], s, story.get("ground"))
     el = element_mod.element(_topic(story))
     html_str = html_templates.TEMPLATES[name](pal, story)
     return _inject(html_str, el["svg"], placement), name, pal, el["kind"], placement
